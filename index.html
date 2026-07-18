@@ -2,17 +2,18 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>منصة MBKtrading الاحترافية</title>
-    <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBKtrading</title>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
     <style>
-        :root { --bg: #050505; --panel: #111; --accent: #f59e0b; }
-        body { background-color: var(--bg); color: #e2e8f0; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 20px; }
-        .dashboard { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
-        .panel { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid #333; }
-        h2 { color: var(--accent); margin-top: 0; border-bottom: 1px solid #222; padding-bottom: 10px; }
-        .controls { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
-        .book-row { display: flex; justify-content: space-between; padding: 5px; font-family: monospace; border-bottom: 1px solid #222; }
+        body { background-color: #050505; color: #fff; font-family: sans-serif; margin: 0; padding: 10px; }
+        .dashboard { display: flex; flex-direction: column; gap: 15px; }
+        .panel { background: #111; padding: 15px; border-radius: 10px; border: 1px solid #333; width: 100%; box-sizing: border-box; }
+        h2 { color: #f59e0b; font-size: 18px; margin: 0 0 10px 0; }
+        .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        #chart-area { width: 100%; overflow-x: auto; }
+        .book-row { display: flex; justify-content: space-between; padding: 4px; font-size: 13px; font-family: monospace; }
         .buy { color: #22c55e; } .sell { color: #ef4444; }
     </style>
 </head>
@@ -20,11 +21,10 @@
 
 <div class="dashboard">
     <div class="panel">
-        <h2>منصة MBKtrading - التحليل الفني التفاعلي</h2>
+        <h2>منصة MBKtrading</h2>
         <div class="controls">
             <label>SMA: <input type="range" id="sma" min="5" max="50" value="20"></label>
             <label>EMA: <input type="range" id="ema" min="5" max="50" value="20"></label>
-            <button onclick="updateChart()" style="background:var(--accent); border:none; padding:5px 15px; border-radius:5px; cursor:pointer;">تحديث الرسم</button>
         </div>
         <div id="chart-area"></div>
     </div>
@@ -32,50 +32,26 @@
     <div class="panel">
         <h2>سجل الأوامر (Order Book)</h2>
         <div id="order-book"></div>
-        <h3 style="color:var(--accent)">شرح تعليمي:</h3>
-        <p style="font-size: 13px; line-height: 1.6;">
-            الـ <b>Order Book</b> يوضح السيولة عند كل سعر.
-            <br>اللون الأحمر (Ask): ضغط البائعين.
-            <br>اللون الأخضر (Bid): قوة المشترين.
-            <br>توازن هذه الأوامر يحدد اتجاه السعر القادم.
-        </p>
     </div>
 </div>
 
 <script>
-    let rawData = Array.from({length: 60}, (_, i) => ({
-        time: i, 
-        price: 100 + Math.random() * 20 - 10,
-        volume: Math.random() * 100
-    }));
-
-    function updateChart() {
-        const smaVal = document.getElementById('sma').value;
-        const emaVal = document.getElementById('ema').value;
+    function render() {
+        const data = Array.from({length: 40}, (_, i) => ({time: i, price: 100 + Math.random()*10, vol: Math.random()*50}));
         
         const chart = Plot.plot({
-            width: 800, height: 400,
-            marks: [
-                Plot.line(rawData, {x: "time", y: "price", stroke: "#64748b"}),
-                Plot.barY(rawData, {x: "time", y: "volume", fill: "#334155", opacity: 0.3}),
-                // هنا يمكن إضافة دوال حساب SMA و EMA برمجياً
-            ]
+            width: 320, height: 200,
+            marks: [Plot.line(data, {x: "time", y: "price", stroke: "#f59e0b"})]
         });
-        document.getElementById("chart-area").innerHTML = "";
-        document.getElementById("chart-area").appendChild(chart);
-    }
+        
+        const area = document.getElementById("chart-area");
+        area.innerHTML = "";
+        area.appendChild(chart);
 
-    // تحديث سجل الأوامر
-    const ob = document.getElementById("order-book");
-    function renderOB() {
-        ob.innerHTML = "";
-        for(let i=5; i>0; i--) ob.innerHTML += `<div class="book-row sell"><span>${105+i}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
-        ob.innerHTML += `<div class="book-row" style="background:#222">السعر الحالي: 105</div>`;
-        for(let i=1; i<=5; i++) ob.innerHTML += `<div class="book-row buy"><span>${105-i}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
+        const ob = document.getElementById("order-book");
+        ob.innerHTML = '<div class="book-row sell"><span>110</span> <span>20</span></div><div class="book-row" style="background:#222">السعر: 105</div><div class="book-row buy"><span>100</span> <span>45</span></div>';
     }
-
-    updateChart();
-    renderOB();
+    render();
 </script>
 
 </body>
