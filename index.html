@@ -3,56 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBKtrading</title>
+    <title>MBKtrading Live</title>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
     <style>
-        body { background-color: #050505; color: #fff; font-family: sans-serif; margin: 0; padding: 10px; }
-        .dashboard { display: flex; flex-direction: column; gap: 15px; }
-        .panel { background: #111; padding: 15px; border-radius: 10px; border: 1px solid #333; width: 100%; box-sizing: border-box; }
-        h2 { color: #f59e0b; font-size: 18px; margin: 0 0 10px 0; }
-        .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-        #chart-area { width: 100%; overflow-x: auto; }
-        .book-row { display: flex; justify-content: space-between; padding: 4px; font-size: 13px; font-family: monospace; }
-        .buy { color: #22c55e; } .sell { color: #ef4444; }
+        body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 10px; }
+        .box { background: #111; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .row { display: flex; justify-content: space-between; padding: 3px; font-family: monospace; }
+        .buy { color: #0f0; } .sell { color: #f00; }
+        input { width: 100%; accent-color: #f59e0b; }
     </style>
 </head>
 <body>
 
-<div class="dashboard">
-    <div class="panel">
-        <h2>منصة MBKtrading</h2>
-        <div class="controls">
-            <label>SMA: <input type="range" id="sma" min="5" max="50" value="20"></label>
-            <label>EMA: <input type="range" id="ema" min="5" max="50" value="20"></label>
-        </div>
-        <div id="chart-area"></div>
-    </div>
-    
-    <div class="panel">
-        <h2>سجل الأوامر (Order Book)</h2>
-        <div id="order-book"></div>
-    </div>
+<div class="box">
+    <h2 style="color:#f59e0b">منصة MBKtrading</h2>
+    <label>SMA Period: <span id="sval">20</span></label><input type="range" id="sma" min="5" max="50" value="20">
+    <label>EMA Period: <span id="eval">20</span></label><input type="range" id="ema" min="5" max="50" value="20">
+    <canvas id="chart" height="200" style="width:100%; margin-top:10px;"></canvas>
+</div>
+
+<div class="box">
+    <h2 style="color:#f59e0b">سجل الأوامر (Order Book)</h2>
+    <div id="ob-container"></div>
 </div>
 
 <script>
-    function render() {
-        const data = Array.from({length: 40}, (_, i) => ({time: i, price: 100 + Math.random()*10, vol: Math.random()*50}));
-        
-        const chart = Plot.plot({
-            width: 320, height: 200,
-            marks: [Plot.line(data, {x: "time", y: "price", stroke: "#f59e0b"})]
-        });
-        
-        const area = document.getElementById("chart-area");
-        area.innerHTML = "";
-        area.appendChild(chart);
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+    let prices = Array(50).fill(100);
 
-        const ob = document.getElementById("order-book");
-        ob.innerHTML = '<div class="book-row sell"><span>110</span> <span>20</span></div><div class="book-row" style="background:#222">السعر: 105</div><div class="book-row buy"><span>100</span> <span>45</span></div>';
+    // تحديث ديناميكي للسعر والرسم
+    function update() {
+        // تحريك السعر
+        prices.push(prices[prices.length-1] + (Math.random()-0.5)*2);
+        prices.shift();
+        
+        // رسم الشارت
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.beginPath();
+        prices.forEach((p, i) => ctx.lineTo(i*(canvas.width/50), 200 - (p-90)*10));
+        ctx.stroke();
+
+        // تحديث الأوامر ديناميكياً
+        const ob = document.getElementById('ob-container');
+        let html = '';
+        for(let i=0; i<5; i++) html += `<div class="row sell"><span>${(105+i).toFixed(2)}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
+        html += `<div class="row" style="background:#222">السعر الحالي: ${prices[49].toFixed(2)}</div>`;
+        for(let i=0; i<5; i++) html += `<div class="row buy"><span>${(104-i).toFixed(2)}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
+        ob.innerHTML = html;
+        
+        requestAnimationFrame(update);
     }
-    render();
-</script>
 
+    // ربط الأشرطة
+    document.getElementById('sma').oninput = (e) => document.getElementById('sval').innerText = e.target.value;
+    document.getElementById('ema').oninput = (e) => document.getElementById('eval').innerText = e.target.value;
+
+    update();
+</script>
 </body>
 </html>
