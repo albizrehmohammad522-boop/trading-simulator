@@ -2,470 +2,80 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>محاكي المتوسطات المتحركة والتداول</title>
-    <!-- تضمين مكتبات الرسم البياني والخطوط -->
+    <title>منصة MBKtrading الاحترافية</title>
     <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background-color: #1e293b;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        h1 { text-align: center; color: #38bdf8; margin-top: 0; }
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1xl));
-            gap: 16px;
-            margin-bottom: 24px;
-            background-color: #0f172a;
-            padding: 16px;
-            border-radius: 8px;
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-        }
-        label { margin-bottom: 6px; font-size: 14px; color: #94a3b8; }
-        input[type="range"] { width: 100%; cursor: pointer; }
-        .toggle-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 20px;
-        }
-        .btn {
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 6px;
-            font-family: 'Cairo', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn:hover { background-color: #0369a1; }
-        #chart {
-            background-color: #0f172a;
-            border-radius: 8px;
-            padding: 12px;
-            min-height: 450px;
-        }
-        .legend {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            margin-top: 12px;
-            font-size: 14px;
-        }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .dot { width: 12px; height: 4px; border-radius: 2px; }
+        :root { --bg: #050505; --panel: #111; --accent: #f59e0b; }
+        body { background-color: var(--bg); color: #e2e8f0; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 20px; }
+        .dashboard { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; max-width: 1400px; margin: auto; }
+        .panel { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid #333; }
+        h2 { color: var(--accent); margin-top: 0; border-bottom: 1px solid #222; padding-bottom: 10px; }
+        .controls { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .book-row { display: flex; justify-content: space-between; padding: 5px; font-family: monospace; border-bottom: 1px solid #222; }
+        .buy { color: #22c55e; } .sell { color: #ef4444; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>محاكي المتوسطات المتحركة (SMA, EMA, WMA) والحجم</h1>
-    
-    <div class="controls">
-        <div class="control-group">
-            <label id="sma-label">فترة SMA: 20</label>
-            <input type="range" id="sma-period" min="5" max="50" value="20">
+<div class="dashboard">
+    <div class="panel">
+        <h2>منصة MBKtrading - التحليل الفني التفاعلي</h2>
+        <div class="controls">
+            <label>SMA: <input type="range" id="sma" min="5" max="50" value="20"></label>
+            <label>EMA: <input type="range" id="ema" min="5" max="50" value="20"></label>
+            <button onclick="updateChart()" style="background:var(--accent); border:none; padding:5px 15px; border-radius:5px; cursor:pointer;">تحديث الرسم</button>
         </div>
-        <div class="control-group">
-            <label id="ema-label">فترة EMA: 20</label>
-            <input type="range" id="ema-period" min="5" max="50" value="20">
-        </div>
-        <div class="control-group">
-            <label id="wma-label">فترة WMA: 20</label>
-            <input type="range" id="wma-period" min="5" max="50" value="20">
-        </div>
-        <div class="control-group">
-            <label id="vol-label">درجة تقلب السعر</label>
-            <input type="range" id="volatility" min="1" max="10" value="5">
-        </div>
-        <div class="toggle-group">
-            <input type="checkbox" id="show-volume" checked>
-            <label for="show-volume">عرض حجم التداول (Volume)</label>
-        </div>
-        <button class="btn" id="new-data">تحديث البيانات السعرية</button>
+        <div id="chart-area"></div>
     </div>
-
-    <div id="chart"></div>
     
-    <div class="legend">
-        <div class="legend-item"><span class="dot" style="background: #e11d48;"></span> SMA</div>
-        <div class="legend-item"><span class="dot" style="background: #22c55e;"></span> EMA</div>
-        <div class="legend-item"><span class="dot" style="background: #eab308;"></span> WMA</div>
+    <div class="panel">
+        <h2>سجل الأوامر (Order Book)</h2>
+        <div id="order-book"></div>
+        <h3 style="color:var(--accent)">شرح تعليمي:</h3>
+        <p style="font-size: 13px; line-height: 1.6;">
+            الـ <b>Order Book</b> يوضح السيولة عند كل سعر.
+            <br>اللون الأحمر (Ask): ضغط البائعين.
+            <br>اللون الأخضر (Bid): قوة المشترين.
+            <br>توازن هذه الأوامر يحدد اتجاه السعر القادم.
+        </p>
     </div>
 </div>
 
 <script>
-    // توليد بيانات وهمية للشموع اليابانية والحجم
-    function generateData(count, volMultiplier) {
-        let data = [];
-        let price = 100;
-        for (let i = 0; i < count; i++) {
-            let change = (Math.random() - 0.48) * volMultiplier;
-            let open = price;
-            let close = price + change;
-            let high = Math.max(open, close) + Math.random() * (volMultiplier * 0.5);
-            let low = Math.min(open, close) - Math.random() * (volMultiplier * 0.5);
-            let volume = Math.floor(Math.random() * 500) + (Math.abs(change) * 100);
-            
-            data.push({ time: i, open, close, high, low, volume });
-            price = close;
-        }
-        return data;
-    }
+    let rawData = Array.from({length: 60}, (_, i) => ({
+        time: i, 
+        price: 100 + Math.random() * 20 - 10,
+        volume: Math.random() * 100
+    }));
 
-    // الحسابات الرياضية للمؤشرات
-    function calcSMA(data, period) {
-        return data.map((d, i) => {
-            if (i < period - 1) return { time: d.time, value: null };
-            let sum = 0;
-            for (let j = 0; j < period; j++) sum += data[i - j].close;
-            return { time: d.time, value: sum / period };
-        }).filter(d => d.value !== null);
-    }
-
-    function calcEMA(data, period) {
-        let k = 2 / (period + 1);
-        let ema = [];
-        let prevEma = data[0].close;
-        for (let i = 0; i < data.length; i++) {
-            if (i < period - 1) {
-                ema.push({ time: data[i].time, value: null });
-                if (i === period - 2) {
-                    let sum = 0;
-                    for(let j=0; j<period; j++) sum += data[j].close;
-                    prevEma = sum / period;
-                }
-            } else {
-                let curEma = data[i].close * k + prevEma * (1 - k);
-                ema.push({ time: data[i].time, value: curEma });
-                prevEma = curEma;
-            }
-        }
-        return ema.filter(d => d.value !== null);
-    }
-
-    function calcWMA(data, period) {
-        let weightSum = (period * (period + 1)) / 2;
-        return data.map((d, i) => {
-            if (i < period - 1) return { time: d.time, value: null };
-            let sum = 0;
-            for (let j = 0; j < period; j++) {
-                sum += data[i - j].close * (period - j);
-            }
-            return { time: d.time, value: sum / weightSum };
-        }).filter(d => d.value !== null);
-    }
-
-    let marketData = generateData(80, 5);
-
-    function renderChart() {
-        const smaP = +document.getElementById('sma-period').value;
-        const emaP = +document.getElementById('ema-period').value;
-        const wmaP = +document.getElementById('wma-period').value;
-        const showVol = document.getElementById('show-volume').checked;
-
-        document.getElementById('sma-label').innerText = `فترة SMA: ${smaP}`;
-        document.getElementById('ema-label').innerText = `فترة EMA: ${emaP}`;
-        document.getElementById('wma-label').innerText = `فترة WMA: ${wmaP}`;
-
-        const smaData = calcSMA(marketData, smaP);
-        const emaData = calcEMA(marketData, emaP);
-        const wmaData = calcWMA(marketData, wmaP);
-
-        // إنشاء طبقات الرسم البياني باستخدام Observable Plot
-        const marks = [
-            Plot.ruleX(marketData, {x: "time", y1: "low", y2: "high", stroke: d => d.close > d.open ? "#22c55e" : "#ef4444"}),
-            Plot.ruleX(marketData, {x: "time", y1: "open", y2: "close", stroke: d => d.close > d.open ? "#22c55e" : "#ef4444", strokeWidth: 6}),
-            Plot.lineY(smaData, {x: "time", y: "value", stroke: "#e11d48", strokeWidth: 2}),
-            Plot.lineY(emaData, {x: "time", y: "value", stroke: "#22c55e", strokeWidth: 2}),
-            Plot.lineY(wmaData, {x: "time", y: "value", stroke: "#eab308", strokeWidth: 2})
-        ];
-
-        if (showVol) {
-            // إضافة حجم التداول في أسفل الرسم البياني بنسبة شفافة لكي لا يغطي الشموع
-            marks.push(Plot.rectY(marketData, {x: "time", y2: "volume", y1: 0, fill: "#334155", opacity: 0.3}));
-        }
-
+    function updateChart() {
+        const smaVal = document.getElementById('sma').value;
+        const emaVal = document.getElementById('ema').value;
+        
         const chart = Plot.plot({
-            width: 850,
-            height: 450,
-            y: { grid: true, inset: 10, ticks: 8 },
-            x: { axis: null },
-            marks: marks
+            width: 800, height: 400,
+            marks: [
+                Plot.line(rawData, {x: "time", y: "price", stroke: "#64748b"}),
+                Plot.barY(rawData, {x: "time", y: "volume", fill: "#334155", opacity: 0.3}),
+                // هنا يمكن إضافة دوال حساب SMA و EMA برمجياً
+            ]
         });
-
-        const container = document.getElementById('chart');
-        container.innerHTML = "";
-        container.appendChild(chart);
+        document.getElementById("chart-area").innerHTML = "";
+        document.getElementById("chart-area").appendChild(chart);
     }
 
-    // ربط عناصر التحكم بالأحداث لتحديث الرسم تلقائياً
-    document.querySelectorAll('input').forEach(input => input.addEventListener('input', renderChart));
-    document.getElementById('new-data').addEventListener('click', () => {
-        const vol = +document.getElementById('volatility').value;
-        marketData = generateData(80, vol);
-        renderChart();
-    });
-
-    renderChart();
-</script>
-
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>محاكي المتوسطات المتحركة والتداول</title>
-    <!-- تضمين مكتبات الرسم البياني والخطوط -->
-    <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background-color: #1e293b;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        h1 { text-align: center; color: #38bdf8; margin-top: 0; }
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1xl));
-            gap: 16px;
-            margin-bottom: 24px;
-            background-color: #0f172a;
-            padding: 16px;
-            border-radius: 8px;
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-        }
-        label { margin-bottom: 6px; font-size: 14px; color: #94a3b8; }
-        input[type="range"] { width: 100%; cursor: pointer; }
-        .toggle-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 20px;
-        }
-        .btn {
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 6px;
-            font-family: 'Cairo', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn:hover { background-color: #0369a1; }
-        #chart {
-            background-color: #0f172a;
-            border-radius: 8px;
-            padding: 12px;
-            min-height: 450px;
-        }
-        .legend {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            margin-top: 12px;
-            font-size: 14px;
-        }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .dot { width: 12px; height: 4px; border-radius: 2px; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>محاكي المتوسطات المتحركة (SMA, EMA, WMA) والحجم</h1>
-    
-    <div class="controls">
-        <div class="control-group">
-            <label id="sma-label">فترة SMA: 20</label>
-            <input type="range" id="sma-period" min="5" max="50" value="20">
-        </div>
-        <div class="control-group">
-            <label id="ema-label">فترة EMA: 20</label>
-            <input type="range" id="ema-period" min="5" max="50" value="20">
-        </div>
-        <div class="control-group">
-            <label id="wma-label">فترة WMA: 20</label>
-            <input type="range" id="wma-period" min="5" max="50" value="20">
-        </div>
-        <div class="control-group">
-            <label id="vol-label">درجة تقلب السعر</label>
-            <input type="range" id="volatility" min="1" max="10" value="5">
-        </div>
-        <div class="toggle-group">
-            <input type="checkbox" id="show-volume" checked>
-            <label for="show-volume">عرض حجم التداول (Volume)</label>
-        </div>
-        <button class="btn" id="new-data">تحديث البيانات السعرية</button>
-    </div>
-
-    <div id="chart"></div>
-    
-    <div class="legend">
-        <div class="legend-item"><span class="dot" style="background: #e11d48;"></span> SMA</div>
-        <div class="legend-item"><span class="dot" style="background: #22c55e;"></span> EMA</div>
-        <div class="legend-item"><span class="dot" style="background: #eab308;"></span> WMA</div>
-    </div>
-</div>
-
-<script>
-    // توليد بيانات وهمية للشموع اليابانية والحجم
-    function generateData(count, volMultiplier) {
-        let data = [];
-        let price = 100;
-        for (let i = 0; i < count; i++) {
-            let change = (Math.random() - 0.48) * volMultiplier;
-            let open = price;
-            let close = price + change;
-            let high = Math.max(open, close) + Math.random() * (volMultiplier * 0.5);
-            let low = Math.min(open, close) - Math.random() * (volMultiplier * 0.5);
-            let volume = Math.floor(Math.random() * 500) + (Math.abs(change) * 100);
-            
-            data.push({ time: i, open, close, high, low, volume });
-            price = close;
-        }
-        return data;
+    // تحديث سجل الأوامر
+    const ob = document.getElementById("order-book");
+    function renderOB() {
+        ob.innerHTML = "";
+        for(let i=5; i>0; i--) ob.innerHTML += `<div class="book-row sell"><span>${105+i}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
+        ob.innerHTML += `<div class="book-row" style="background:#222">السعر الحالي: 105</div>`;
+        for(let i=1; i<=5; i++) ob.innerHTML += `<div class="book-row buy"><span>${105-i}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
     }
 
-    // الحسابات الرياضية للمؤشرات
-    function calcSMA(data, period) {
-        return data.map((d, i) => {
-            if (i < period - 1) return { time: d.time, value: null };
-            let sum = 0;
-            for (let j = 0; j < period; j++) sum += data[i - j].close;
-            return { time: d.time, value: sum / period };
-        }).filter(d => d.value !== null);
-    }
-
-    function calcEMA(data, period) {
-        let k = 2 / (period + 1);
-        let ema = [];
-        let prevEma = data[0].close;
-        for (let i = 0; i < data.length; i++) {
-            if (i < period - 1) {
-                ema.push({ time: data[i].time, value: null });
-                if (i === period - 2) {
-                    let sum = 0;
-                    for(let j=0; j<period; j++) sum += data[j].close;
-                    prevEma = sum / period;
-                }
-            } else {
-                let curEma = data[i].close * k + prevEma * (1 - k);
-                ema.push({ time: data[i].time, value: curEma });
-                prevEma = curEma;
-            }
-        }
-        return ema.filter(d => d.value !== null);
-    }
-
-    function calcWMA(data, period) {
-        let weightSum = (period * (period + 1)) / 2;
-        return data.map((d, i) => {
-            if (i < period - 1) return { time: d.time, value: null };
-            let sum = 0;
-            for (let j = 0; j < period; j++) {
-                sum += data[i - j].close * (period - j);
-            }
-            return { time: d.time, value: sum / weightSum };
-        }).filter(d => d.value !== null);
-    }
-
-    let marketData = generateData(80, 5);
-
-    function renderChart() {
-        const smaP = +document.getElementById('sma-period').value;
-        const emaP = +document.getElementById('ema-period').value;
-        const wmaP = +document.getElementById('wma-period').value;
-        const showVol = document.getElementById('show-volume').checked;
-
-        document.getElementById('sma-label').innerText = `فترة SMA: ${smaP}`;
-        document.getElementById('ema-label').innerText = `فترة EMA: ${emaP}`;
-        document.getElementById('wma-label').innerText = `فترة WMA: ${wmaP}`;
-
-        const smaData = calcSMA(marketData, smaP);
-        const emaData = calcEMA(marketData, emaP);
-        const wmaData = calcWMA(marketData, wmaP);
-
-        // إنشاء طبقات الرسم البياني باستخدام Observable Plot
-        const marks = [
-            Plot.ruleX(marketData, {x: "time", y1: "low", y2: "high", stroke: d => d.close > d.open ? "#22c55e" : "#ef4444"}),
-            Plot.ruleX(marketData, {x: "time", y1: "open", y2: "close", stroke: d => d.close > d.open ? "#22c55e" : "#ef4444", strokeWidth: 6}),
-            Plot.lineY(smaData, {x: "time", y: "value", stroke: "#e11d48", strokeWidth: 2}),
-            Plot.lineY(emaData, {x: "time", y: "value", stroke: "#22c55e", strokeWidth: 2}),
-            Plot.lineY(wmaData, {x: "time", y: "value", stroke: "#eab308", strokeWidth: 2})
-        ];
-
-        if (showVol) {
-            // إضافة حجم التداول في أسفل الرسم البياني بنسبة شفافة لكي لا يغطي الشموع
-            marks.push(Plot.rectY(marketData, {x: "time", y2: "volume", y1: 0, fill: "#334155", opacity: 0.3}));
-        }
-
-        const chart = Plot.plot({
-            width: 850,
-            height: 450,
-            y: { grid: true, inset: 10, ticks: 8 },
-            x: { axis: null },
-            marks: marks
-        });
-
-        const container = document.getElementById('chart');
-        container.innerHTML = "";
-        container.appendChild(chart);
-    }
-
-    // ربط عناصر التحكم بالأحداث لتحديث الرسم تلقائياً
-    document.querySelectorAll('input').forEach(input => input.addEventListener('input', renderChart));
-    document.getElementById('new-data').addEventListener('click', () => {
-        const vol = +document.getElementById('volatility').value;
-        marketData = generateData(80, vol);
-        renderChart();
-    });
-
-    renderChart();
+    updateChart();
+    renderOB();
 </script>
 
 </body>
