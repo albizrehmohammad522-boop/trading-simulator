@@ -7,18 +7,17 @@
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 10px; }
         .box { background: #111; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-        .row { display: flex; justify-content: space-between; padding: 3px; font-family: monospace; }
+        .row { display: flex; justify-content: space-between; padding: 4px; font-family: monospace; border-bottom: 1px solid #222; }
         .buy { color: #0f0; } .sell { color: #f00; }
-        input { width: 100%; accent-color: #f59e0b; margin-bottom: 10px; }
-        canvas { width: 100%; height: 200px; background: #050505; }
+        canvas { width: 100%; height: 250px; background: #0a0a0a; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="box">
     <h2 style="color:#f59e0b">منصة MBKtrading</h2>
-    <label>SMA Period: <span id="sval">20</span></label><input type="range" id="sma" min="5" max="50" value="20">
-    <label>EMA Period: <span id="eval">20</span></label><input type="range" id="ema" min="5" max="50" value="20">
+    <input type="range" id="sma" min="5" max="50" value="20">
+    <input type="range" id="ema" min="5" max="50" value="20">
     <canvas id="chart"></canvas>
 </div>
 
@@ -30,54 +29,54 @@
 <script>
     const canvas = document.getElementById('chart');
     const ctx = canvas.getContext('2d');
-    let prices = Array(50).fill(100);
-    let smaVal = 100, emaVal = 100;
+    let history = { price: [], sma: [], ema: [] };
+    let currentPrice = 100;
+    let emaVal = 100;
+
+    function drawLine(arr, color) {
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        arr.forEach((val, i) => {
+            let x = i * (canvas.width / 50);
+            let y = 125 - (val - 100) * 10;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    }
 
     function update() {
-        // تحديث السعر
-        prices.push(prices[prices.length-1] + (Math.random()-0.5)*1.5);
-        prices.shift();
-
+        currentPrice += (Math.random()-0.5)*2;
         const sP = parseInt(document.getElementById('sma').value);
         const eP = parseInt(document.getElementById('ema').value);
-        document.getElementById('sval').innerText = sP;
-        document.getElementById('eval').innerText = eP;
 
-        // حساب المتوسطات
-        smaVal = prices.slice(-sP).reduce((a,b) => a+b, 0) / sP;
-        emaVal = (prices[49] * (2/(eP+1))) + (emaVal * (1 - (2/(eP+1))));
+        history.price.push(currentPrice);
+        if (history.price.length > 50) history.price.shift();
+
+        // حساب المسارات الحقيقية
+        let sma = history.price.slice(-sP).reduce((a,b) => a+b, 0) / sP;
+        emaVal = (currentPrice * (2/(eP+1))) + (emaVal * (1 - (2/(eP+1))));
+        
+        history.sma.push(sma); history.ema.push(emaVal);
+        if (history.sma.length > 50) { history.sma.shift(); history.ema.shift(); }
 
         ctx.clearRect(0,0, canvas.width, canvas.height);
         
-        // رسم السعر
-        ctx.strokeStyle = '#fff';
-        ctx.beginPath();
-        prices.forEach((p, i) => ctx.lineTo(i*(canvas.width/50), 100 - (p-100)*5));
-        ctx.stroke();
+        // رسم مناطق "ضغط الأوامر" (خلفية)
+        ctx.fillStyle = currentPrice > 100 ? 'rgba(0,255,0,0.05)' : 'rgba(255,0,0,0.05)';
+        ctx.fillRect(0,0, canvas.width, canvas.height);
 
-        // رسم SMA (أحمر)
-        ctx.strokeStyle = '#f00';
-        ctx.beginPath();
-        ctx.lineTo(0, 100 - (smaVal-100)*5);
-        ctx.lineTo(canvas.width, 100 - (smaVal-100)*5);
-        ctx.stroke();
+        drawLine(history.price, '#fff');
+        drawLine(history.sma, '#f00');
+        drawLine(history.ema, '#0f0');
 
-        // رسم EMA (أخضر)
-        ctx.strokeStyle = '#0f0';
-        ctx.beginPath();
-        ctx.lineTo(0, 100 - (emaVal-100)*5);
-        ctx.lineTo(canvas.width, 100 - (emaVal-100)*5);
-        ctx.stroke();
-
-        // تحديث سجل الأوامر
-        const ob = document.getElementById('ob-container');
-        ob.innerHTML = `<div class="row sell"><span>${(prices[49]+0.5).toFixed(2)}</span> <span>${Math.floor(Math.random()*50)}</span></div>
-                        <div class="row" style="background:#222">السعر: ${prices[49].toFixed(2)}</div>
-                        <div class="row buy"><span>${(prices[49]-0.5).toFixed(2)}</span> <span>${Math.floor(Math.random()*50)}</span></div>`;
+        // تحديث الأوامر (تفاعلي)
+        document.getElementById('ob-container').innerHTML = 
+            `<div class="row sell"><span>${(currentPrice+0.3).toFixed(2)}</span> <span>${Math.floor(currentPrice*2)}</span></div>
+             <div class="row" style="background:#222; font-weight:bold">السعر الحالي: ${currentPrice.toFixed(2)}</div>
+             <div class="row buy"><span>${(currentPrice-0.3).toFixed(2)}</span> <span>${Math.floor(currentPrice*1.5)}</span></div>`;
 
         setTimeout(update, 200);
     }
-
     update();
 </script>
 </body>
