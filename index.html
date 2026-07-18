@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBKtrading Live</title>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <title>MBKtrading Pro</title>
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 10px; }
         .box { background: #111; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         .row { display: flex; justify-content: space-between; padding: 3px; font-family: monospace; }
         .buy { color: #0f0; } .sell { color: #f00; }
         input { width: 100%; accent-color: #f59e0b; }
+        canvas { width: 100%; height: 200px; }
     </style>
 </head>
 <body>
@@ -19,7 +19,7 @@
     <h2 style="color:#f59e0b">منصة MBKtrading</h2>
     <label>SMA Period: <span id="sval">20</span></label><input type="range" id="sma" min="5" max="50" value="20">
     <label>EMA Period: <span id="eval">20</span></label><input type="range" id="ema" min="5" max="50" value="20">
-    <canvas id="chart" height="200" style="width:100%; margin-top:10px;"></canvas>
+    <canvas id="chart"></canvas>
 </div>
 
 <div class="box">
@@ -31,34 +31,43 @@
     const canvas = document.getElementById('chart');
     const ctx = canvas.getContext('2d');
     let prices = Array(50).fill(100);
+    let smaLine = [], emaLine = [];
 
-    // تحديث ديناميكي للسعر والرسم
     function update() {
-        // تحريك السعر
-        prices.push(prices[prices.length-1] + (Math.random()-0.5)*2);
+        // حركة أبطأ للسعر
+        prices.push(prices[prices.length-1] + (Math.random()-0.5)*0.8);
         prices.shift();
+
+        const smaP = document.getElementById('sma').value;
+        const emaP = document.getElementById('ema').value;
+        document.getElementById('sval').innerText = smaP;
+        document.getElementById('eval').innerText = emaP;
+
+        // حساب SMA و EMA
+        let sma = prices.slice(-smaP).reduce((a,b) => a+b, 0) / smaP;
         
-        // رسم الشارت
-        ctx.clearRect(0,0,canvas.width, canvas.height);
-        ctx.strokeStyle = '#f59e0b';
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        
+        // رسم السعر
+        ctx.strokeStyle = '#fff';
         ctx.beginPath();
-        prices.forEach((p, i) => ctx.lineTo(i*(canvas.width/50), 200 - (p-90)*10));
+        prices.forEach((p, i) => ctx.lineTo(i*(canvas.width/50), 100 - (p-100)*10));
         ctx.stroke();
 
-        // تحديث الأوامر ديناميكياً
+        // رسم SMA (أحمر)
+        ctx.strokeStyle = '#f00';
+        ctx.strokeRect(0, 100 - (sma-100)*10, canvas.width, 1);
+
+        // تحديث الأوامر
         const ob = document.getElementById('ob-container');
         let html = '';
-        for(let i=0; i<5; i++) html += `<div class="row sell"><span>${(105+i).toFixed(2)}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
-        html += `<div class="row" style="background:#222">السعر الحالي: ${prices[49].toFixed(2)}</div>`;
-        for(let i=0; i<5; i++) html += `<div class="row buy"><span>${(104-i).toFixed(2)}</span> <span>${Math.floor(Math.random()*100)}</span></div>`;
+        for(let i=0; i<3; i++) html += `<div class="row sell"><span>${(prices[49]+i).toFixed(2)}</span> <span>${Math.floor(Math.random()*50)}</span></div>`;
+        html += `<div class="row" style="background:#222">السعر: ${prices[49].toFixed(2)}</div>`;
+        for(let i=0; i<3; i++) html += `<div class="row buy"><span>${(prices[49]-i).toFixed(2)}</span> <span>${Math.floor(Math.random()*50)}</span></div>`;
         ob.innerHTML = html;
-        
-        requestAnimationFrame(update);
-    }
 
-    // ربط الأشرطة
-    document.getElementById('sma').oninput = (e) => document.getElementById('sval').innerText = e.target.value;
-    document.getElementById('ema').oninput = (e) => document.getElementById('eval').innerText = e.target.value;
+        setTimeout(update, 200); // إبطاء الحركة
+    }
 
     update();
 </script>
