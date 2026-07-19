@@ -3,158 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBKtrading Professional</title>
+    <title>MBKtrading - منصة التحليل المتقدم</title>
     <style>
-        body { 
-            background: #000000; 
-            color: #d1d4dc; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            margin: 0; 
-            padding: 15px 10px; 
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .panel { 
-            background: #131722; 
-            border: 1px solid #2a2e39; 
-            border-radius: 8px; 
-            padding: 15px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-        .header-title {
-            color: #f59e0b;
-            font-size: 16px;
-            font-weight: bold;
-            margin: 0 0 15px 0;
-            border-bottom: 1px solid #2a2e39;
-            padding-bottom: 10px;
-        }
-        .chart-container {
-            width: 100%;
-            height: 300px;
-            position: relative;
-        }
-        canvas { 
-            width: 100%; 
-            height: 100%; 
-            display: block;
-        }
-        .book { font-family: 'Courier New', Courier, monospace; font-size: 14px; }
-        .row { display: flex; justify-content: space-between; padding: 6px 5px; border-bottom: 1px solid #1e222d; }
-        .buy { color: #089981; } 
-        .sell { color: #f23645; }
-        .current-price { 
-            background: #2a2e39; 
-            color: #ffffff; 
-            font-weight: bold; 
-            text-align: center; 
-            padding: 8px; 
-            border-radius: 4px; 
-            margin: 5px 0;
-        }
+        body { background: #0b0e14; color: #d1d4dc; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .panel { background: #151924; border: 1px solid #2a2e39; border-radius: 6px; padding: 15px; }
+        h2 { color: #eab308; font-size: 16px; margin: 0 0 15px 0; border-bottom: 1px solid #2a2e39; padding-bottom: 8px; }
+        
+        /* أدوات التحكم بالمتوسطات */
+        .controls { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; font-size: 12px; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px; }
+        input[type=range] { width: 100%; accent-color: #eab308; }
+        .val-badge { display: inline-block; background: #2a2e39; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        
+        .chart-container { width: 100%; height: 350px; position: relative; background: #0b0e14; border: 1px solid #2a2e39; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        /* سجل الأوامر */
+        .ob-container { display: flex; flex-direction: column; gap: 4px; font-family: monospace; font-size: 13px; }
+        .ob-row { display: flex; justify-content: space-between; padding: 4px 8px; border-radius: 3px; position: relative; overflow: hidden; }
+        .ob-row.sell { color: #ef4444; }
+        .ob-row.buy { color: #22c55e; }
+        .ob-bg { position: absolute; right: 0; top: 0; bottom: 0; opacity: 0.15; z-index: 0; }
+        .ob-row.sell .ob-bg { background: #ef4444; }
+        .ob-row.buy .ob-bg { background: #22c55e; }
+        .ob-text { position: relative; z-index: 1; display: flex; justify-content: space-between; width: 100%; }
+        .current-price { text-align: center; font-weight: bold; padding: 8px; background: #2a2e39; color: #fff; margin: 4px 0; border-radius: 4px; }
+        
+        .legend { display: flex; gap: 15px; font-size: 11px; margin-top: 10px; justify-content: center; }
+        .l-sma { color: #3b82f6; } .l-ema { color: #f59e0b; } .l-wma { color: #a855f7; }
     </style>
 </head>
 <body>
 
 <div class="panel">
-    <div class="header-title">شارت السيولة والامتصاص - MBKtrading</div>
+    <h2>شارت MBKtrading - السيولة والمتوسطات</h2>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label class="l-sma">SMA Period: <span id="v-sma" class="val-badge">20</span></label>
+            <input type="range" id="sma" min="5" max="50" value="20">
+        </div>
+        <div class="control-group">
+            <label class="l-ema">EMA Period: <span id="v-ema" class="val-badge">20</span></label>
+            <input type="range" id="ema" min="5" max="50" value="20">
+        </div>
+        <div class="control-group">
+            <label class="l-wma">WMA Period: <span id="v-wma" class="val-badge">20</span></label>
+            <input type="range" id="wma" min="5" max="50" value="20">
+        </div>
+    </div>
+
     <div class="chart-container">
         <canvas id="chart"></canvas>
     </div>
+    
+    <div class="legend">
+        <span class="l-sma">■ SMA (بسيط)</span>
+        <span class="l-ema">■ EMA (أسي)</span>
+        <span class="l-wma">■ WMA (مرجح)</span>
+    </div>
 </div>
 
-<div class="panel book">
-    <div class="header-title">سجل الأوامر (Order Book)</div>
-    <div id="ob"></div>
+<div class="panel">
+    <h2>سجل الأوامر (Order Book & Absorption)</h2>
+    <div class="ob-container" id="ob"></div>
 </div>
 
 <script>
     const canvas = document.getElementById('chart');
     const ctx = canvas.getContext('2d');
     
-    // ضبط حجم الشارت ليتوافق مع شاشة الهاتف
-    function resizeCanvas() {
-        const container = canvas.parentElement;
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
+    function resize() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
     }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+    window.addEventListener('resize', resize);
+    resize();
 
-    let price = 100;
-    let history = Array(60).fill(100);
-    let profile = {};
+    // إعدادات المحاكاة
+    let currentPrice = 15000; // سعر مقارب للناسداك كمثال
+    let candles = [];
+    let currentCandle = {o: currentPrice, h: currentPrice, l: currentPrice, c: currentPrice, vol: 0};
+    let tickCount = 0;
+    let volumeProfile = {}; // لتخزين خريطة السيولة (Heatmap)
 
-    function update() {
-        // تحديث حركة السعر
-        price += (Math.random() - 0.5) * 1.5;
-        let roundedPrice = Math.round(price * 2) / 2; // التقريب لأقرب 0.5 لتكوين مناطق الامتصاص
-        
-        profile[roundedPrice] = (profile[roundedPrice] || 0) + 1;
-        
-        history.push(price);
-        if(history.length > 60) history.shift();
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // حساب أبعاد الشارت لعمل Auto-Scale
-        const minPrice = Math.min(...history) - 2;
-        const maxPrice = Math.max(...history) + 2;
-        const priceRange = maxPrice - minPrice;
-        const getY = (p) => canvas.height - ((p - minPrice) / priceRange) * canvas.height;
-
-        // رسم مناطق السيولة (Fixed Volume Profile)
-        Object.keys(profile).forEach(pStr => {
-            let p = parseFloat(pStr);
-            if (p < minPrice || p > maxPrice) return; 
-            let intensity = Math.min(profile[pStr] / 30, 0.6); // كلما زاد الحجم زاد وضوح اللون
-            ctx.fillStyle = `rgba(245, 158, 11, ${intensity})`;
-            let y = getY(p);
-            ctx.fillRect(0, y - 5, 80, 10);
+    // ربط المدخلات
+    ['sma', 'ema', 'wma'].forEach(id => {
+        document.getElementById(id).addEventListener('input', (e) => {
+            document.getElementById('v-'+id).innerText = e.target.value;
         });
+    });
 
-        // رسم خط السعر
-        ctx.strokeStyle = '#2962ff';
-        ctx.lineWidth = 2;
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        history.forEach((p, i) => {
-            let x = i * (canvas.width / 59);
-            let y = getY(p);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
+    function calculateMAs(closes) {
+        const pSMA = parseInt(document.getElementById('sma').value);
+        const pEMA = parseInt(document.getElementById('ema').value);
+        const pWMA = parseInt(document.getElementById('wma').value);
 
-        // رسم خط أفقي للسعر الحالي
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
-        let currentY = getY(price);
-        ctx.beginPath();
-        ctx.moveTo(0, currentY);
-        ctx.lineTo(canvas.width, currentY);
-        ctx.stroke();
-        ctx.setLineDash([]); 
+        let sma = [], ema = [], wma = [];
+        
+        for(let i=0; i<closes.length; i++) {
+            // SMA
+            if(i >= pSMA - 1) {
+                let sum = 0;
+                for(let j=0; j<pSMA; j++) sum += closes[i-j];
+                sma.push(sum / pSMA);
+            } else sma.push(null);
 
-        // تحديث دفتر الأوامر
-        let obHtml = '';
-        for(let i=3; i>0; i--) {
-            let ask = price + (i * 0.3);
-            obHtml += `<div class="row sell"><span>${ask.toFixed(2)}</span> <span>${Math.floor(Math.random()*80 + 20)}</span></div>`;
+            // EMA
+            if(i === 0) ema.push(closes[i]);
+            else {
+                let k = 2 / (pEMA + 1);
+                ema.push(closes[i] * k + ema[i-1] * (1 - k));
+            }
+
+            // WMA
+            if(i >= pWMA - 1) {
+                let sum = 0, weightSum = 0;
+                for(let j=0; j<pWMA; j++) {
+                    let weight = pWMA - j;
+                    sum += closes[i-j] * weight;
+                    weightSum += weight;
+                }
+                wma.push(sum / weightSum);
+            } else wma.push(null);
         }
-        obHtml += `<div class="current-price">السعر الحالي: ${price.toFixed(2)}</div>`;
-        for(let i=1; i<=3; i++) {
-            let bid = price - (i * 0.3);
-            obHtml += `<div class="row buy"><span>${bid.toFixed(2)}</span> <span>${Math.floor(Math.random()*80 + 20)}</span></div>`;
+        return {sma, ema, wma};
+    }
+
+    function draw() {
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        
+        let allCandles = [...candles, currentCandle];
+        let closes = allCandles.map(c => c.c);
+        
+        let minP = Math.min(...allCandles.map(c => c.l)) - 10;
+        let maxP = Math.max(...allCandles.map(c => c.h)) + 10;
+        let range = maxP - minP;
+        let getY = p => canvas.height - ((p - minP) / range) * canvas.height;
+        
+        let candleWidth = canvas.width / 60; // نعرض آخر 60 شمعة
+        let startIdx = Math.max(0, allCandles.length - 60);
+        let visibleCandles = allCandles.slice(startIdx);
+        let visCloses = closes.slice(startIdx);
+
+        // 1. رسم خريطة السيولة (Heatmap - Absorption) في الخلفية
+        let maxVol = Math.max(...Object.values(volumeProfile).concat([1]));
+        Object.keys(volumeProfile).forEach(pStr => {
+            let p = parseFloat(pStr);
+            if(p < minP || p > maxP) return;
+            let width = (volumeProfile[pStr] / maxVol) * (canvas.width * 0.4); // تمتد حتى 40% من الشاشة
+            let opacity = Math.min((volumeProfile[pStr] / maxVol) * 0.8 + 0.1, 0.8);
+            ctx.fillStyle = `rgba(234, 179, 8, ${opacity})`;
+            ctx.fillRect(0, getY(p) - 2, width, 4);
+        });
+
+        // 2. رسم الشموع اليابانية
+        visibleCandles.forEach((c, i) => {
+            let x = i * candleWidth + (candleWidth/2);
+            let color = c.c >= c.o ? '#089981' : '#f23645';
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+            
+            // رسم الذيل (Wick)
+            ctx.beginPath();
+            ctx.moveTo(x, getY(c.h));
+            ctx.lineTo(x, getY(c.l));
+            ctx.stroke();
+            
+            // رسم الجسم (Body)
+            let yO = getY(c.o), yC = getY(c.c);
+            ctx.fillRect(x - candleWidth*0.3, Math.min(yO, yC), candleWidth*0.6, Math.max(Math.abs(yO - yC), 1));
+        });
+
+        // 3. رسم المتوسطات المتحركة
+        let mas = calculateMAs(allCandles);
+        let drawLine = (data, color) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            let visData = data.slice(startIdx);
+            let started = false;
+            visData.forEach((val, i) => {
+                if(val === null) return;
+                let x = i * candleWidth + (candleWidth/2);
+                if(!started) { ctx.moveTo(x, getY(val)); started = true; }
+                else ctx.lineTo(x, getY(val));
+            });
+            ctx.stroke();
+        };
+        drawLine(mas.sma, '#3b82f6'); // SMA أزرق
+        drawLine(mas.ema, '#f59e0b'); // EMA برتقالي
+        drawLine(mas.wma, '#a855f7'); // WMA بنفسجي
+
+        // 4. تحديث سجل الأوامر
+        let obHtml = '';
+        for(let i=4; i>0; i--) {
+            let p = currentPrice + (i * 2);
+            let vol = Math.floor(Math.random() * 50 + (volumeProfile[Math.round(p/5)*5] || 0) % 50); // ربط الأوامر بالسيولة
+            let pct = (vol / 100) * 100;
+            obHtml += `<div class="ob-row sell"><div class="ob-bg" style="width:${pct}%"></div><div class="ob-text"><span>${p.toFixed(1)}</span> <span>${vol} عقود</span></div></div>`;
+        }
+        obHtml += `<div class="current-price">${currentPrice.toFixed(1)}</div>`;
+        for(let i=1; i<=4; i++) {
+            let p = currentPrice - (i * 2);
+            let vol = Math.floor(Math.random() * 50 + (volumeProfile[Math.round(p/5)*5] || 0) % 50);
+            let pct = (vol / 100) * 100;
+            obHtml += `<div class="ob-row buy"><div class="ob-bg" style="width:${pct}%"></div><div class="ob-text"><span>${p.toFixed(1)}</span> <span>${vol} عقود</span></div></div>`;
         }
         document.getElementById('ob').innerHTML = obHtml;
+    }
 
-        setTimeout(update, 150); 
+    function simulateTick() {
+        let move = (Math.random() - 0.5) * 6; // تذبذب السعر
+        currentPrice += move;
+        let tickVol = Math.floor(Math.random() * 5 + 1);
+        
+        currentCandle.c = currentPrice;
+        currentCandle.h = Math.max(currentCandle.h, currentPrice);
+        currentCandle.l = Math.min(currentCandle.l, currentPrice);
+        currentCandle.vol += tickVol;
+
+        // تحديث خريطة السيولة كل 5 نقاط
+        let level = Math.round(currentPrice / 5) * 5; 
+        volumeProfile[level] = (volumeProfile[level] || 0) + tickVol;
+
+        tickCount++;
+        if(tickCount > 15) { // إغلاق الشمعة كل 15 حركة للسعر
+            candles.push({...currentCandle});
+            if(candles.length > 100) candles.shift(); // الاحتفاظ بآخر 100 شمعة
+            currentCandle = {o: currentPrice, h: currentPrice, l: currentPrice, c: currentPrice, vol: 0};
+            tickCount = 0;
+        }
+        
+        draw();
+        setTimeout(simulateTick, 150); // سرعة حركة السوق
+    }
+
+    // تهيئة شموع مبدئية
+    for(let i=0; i<30; i++) {
+        currentPrice += (Math.random()-0.5)*10;
+        candles.push({o: currentPrice-2, h: currentPrice+5, l: currentPrice-5, c: currentPrice, vol: Math.random()*20});
+        volumeProfile[Math.round(currentPrice/5)*5] = Math.random()*50;
     }
     
-    update();
+    simulateTick();
 </script>
 </body>
 </html>
