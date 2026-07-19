@@ -3,20 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBKtrading - السيولة والمتوسطات</title>
+    <title>MBKtrading - منصة التحليل المتقدم</title>
     <style>
-        body { background: #0b0e14; color: #d1d4dc; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        body { background: #0b0e14; color: #d1d4dc; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
         .panel { background: #151924; border: 1px solid #2a2e39; border-radius: 6px; padding: 15px; }
-        h2 { color: #eab308; font-size: 16px; margin: 0 0 15px 0; border-bottom: 1px solid #2a2e39; padding-bottom: 8px; text-align: right; }
-        .controls { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; justify-content: flex-end; }
-        .control-group { display: flex; flex-direction: column; gap: 5px; min-width: 120px; align-items: flex-end; }
+        h2 { color: #eab308; font-size: 16px; margin: 0 0 15px 0; border-bottom: 1px solid #2a2e39; padding-bottom: 8px; }
+        
+        /* أدوات التحكم بالمتوسطات */
+        .controls { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; font-size: 12px; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 90px; }
         input[type=range] { width: 100%; accent-color: #eab308; }
-        .val-badge { background: #2a2e39; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: #f59e0b; }
-        .chart-container { width: 100%; height: 350px; background: #0b0e14; border: 1px solid #2a2e39; border-radius: 4px; overflow: hidden; }
+        .val-badge { display: inline-block; background: #2a2e39; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        
+        .chart-container { width: 100%; height: 350px; position: relative; background: #0b0e14; border: 1px solid #2a2e39; }
         canvas { width: 100%; height: 100%; display: block; }
+        
+        /* سجل الأوامر */
+        .ob-container { display: flex; flex-direction: column; gap: 4px; font-family: monospace; font-size: 13px; }
+        .ob-row { display: flex; justify-content: space-between; padding: 4px 8px; border-radius: 3px; position: relative; overflow: hidden; }
+        .ob-row.sell { color: #ef4444; }
+        .ob-row.buy { color: #22c55e; }
+        .ob-bg { position: absolute; right: 0; top: 0; bottom: 0; opacity: 0.15; z-index: 0; }
+        .ob-row.sell .ob-bg { background: #ef4444; }
+        .ob-row.buy .ob-bg { background: #22c55e; }
+        .ob-text { position: relative; z-index: 1; display: flex; justify-content: space-between; width: 100%; }
+        .current-price { text-align: center; font-weight: bold; padding: 8px; background: #2a2e39; color: #fff; margin: 4px 0; border-radius: 4px; border-left: 3px solid #eab308; }
+        
         .legend { display: flex; gap: 15px; font-size: 11px; margin-top: 10px; justify-content: center; }
         .l-sma { color: #3b82f6; } .l-ema { color: #f59e0b; } .l-wma { color: #a855f7; }
-        .current-price { text-align: center; font-weight: bold; padding: 8px; background: #2a2e39; color: #fff; margin-top: 10px; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -26,15 +40,15 @@
     
     <div class="controls">
         <div class="control-group">
-            <label>SMA Period: <span id="v-sma" class="val-badge">20</span></label>
+            <label class="l-sma">SMA: <span id="v-sma" class="val-badge">20</span></label>
             <input type="range" id="sma" min="5" max="50" value="20">
         </div>
         <div class="control-group">
-            <label>EMA Period: <span id="v-ema" class="val-badge">20</span></label>
+            <label class="l-ema">EMA: <span id="v-ema" class="val-badge">20</span></label>
             <input type="range" id="ema" min="5" max="50" value="20">
         </div>
         <div class="control-group">
-            <label>WMA Period: <span id="v-wma" class="val-badge">20</span></label>
+            <label class="l-wma">WMA: <span id="v-wma" class="val-badge">20</span></label>
             <input type="range" id="wma" min="5" max="50" value="20">
         </div>
     </div>
@@ -44,15 +58,15 @@
     </div>
     
     <div class="legend">
-        <span class="l-sma">■ SMA (بسيط)</span>
-        <span class="l-ema">■ EMA (أسي)</span>
-        <span class="l-wma">■ WMA (مرجح)</span>
+        <span class="l-sma">■ SMA</span>
+        <span class="l-ema">■ EMA</span>
+        <span class="l-wma">■ WMA</span>
     </div>
 </div>
 
 <div class="panel">
     <h2>سجل الأوامر (Order Book & Absorption)</h2>
-    <div class="current-price" id="current-price">15000.0</div>
+    <div class="ob-container" id="ob"></div>
 </div>
 
 <script>
@@ -67,98 +81,194 @@
     resize();
 
     let currentPrice = 15000;
-    let history = Array(60).fill(100);
+    let candles = [];
+    let currentCandle = {o: currentPrice, h: currentPrice, l: currentPrice, c: currentPrice};
+    let tickCount = 0;
+    let patternTick = 0;
+    
+    // خريطة السيولة المتقدمة تسجل الشراء والبيع بشكل منفصل
     let volumeProfile = {}; 
-    let patternTick = 0; // مؤشر للنمط
 
-    // ربط المدخلات
     ['sma', 'ema', 'wma'].forEach(id => {
         document.getElementById(id).addEventListener('input', (e) => {
             document.getElementById('v-'+id).innerText = e.target.value;
         });
     });
 
+    function calculateMAs(closes) {
+        const pSMA = parseInt(document.getElementById('sma').value);
+        const pEMA = parseInt(document.getElementById('ema').value);
+        const pWMA = parseInt(document.getElementById('wma').value);
+        let sma = [], ema = [], wma = [];
+        
+        for(let i=0; i<closes.length; i++) {
+            if(i >= pSMA - 1) {
+                let sum = 0; for(let j=0; j<pSMA; j++) sum += closes[i-j];
+                sma.push(sum / pSMA);
+            } else sma.push(null);
+
+            if(i === 0) ema.push(closes[i]);
+            else { let k = 2 / (pEMA + 1); ema.push(closes[i] * k + ema[i-1] * (1 - k)); }
+
+            if(i >= pWMA - 1) {
+                let sum = 0, weightSum = 0;
+                for(let j=0; j<pWMA; j++) { let weight = pWMA - j; sum += closes[i-j] * weight; weightSum += weight; }
+                wma.push(sum / weightSum);
+            } else wma.push(null);
+        }
+        return {sma, ema, wma};
+    }
+
     function draw() {
         ctx.clearRect(0,0, canvas.width, canvas.height);
         
-        let minP = Math.min(...history) - 10;
-        let maxP = Math.max(...history) + 10;
+        let allCandles = [...candles, currentCandle];
+        let closes = allCandles.map(c => c.c);
+        
+        let minP = Math.min(...allCandles.map(c => c.l)) - 15;
+        let maxP = Math.max(...allCandles.map(c => c.h)) + 15;
         let range = maxP - minP;
         let getY = p => canvas.height - ((p - minP) / range) * canvas.height;
         
-        // 1. رسم خريطة السيولة (Heatmap - Absorption) في الخلفية
-        let maxVol = Math.max(...Object.values(volumeProfile).map(v => v.total).concat([1]));
+        let candleWidth = canvas.width / 60;
+        let startIdx = Math.max(0, allCandles.length - 60);
+        let visibleCandles = allCandles.slice(startIdx);
+
+        // 1. رسم الهيت ماب الممتد (Heatmap)
+        let maxVol = Math.max(...Object.values(volumeProfile).map(v => v.buy + v.sell).concat([1]));
         Object.keys(volumeProfile).forEach(pStr => {
             let p = parseFloat(pStr);
             if(p < minP || p > maxP) return;
-            
             let data = volumeProfile[pStr];
-            let netVol = data.buy - data.sell; // صافي الحجم (شراء - بيع)
+            let total = data.buy + data.sell;
+            if(total === 0) return;
             
-            // اختيار اللون بناءً على صافي الحجم
-            let baseColor = netVol > 0 ? 'rgba(34, 197, 94' : 'rgba(239, 68, 68'; 
-            let intensity = Math.min((data.total / maxVol) * 0.7 + 0.1, 0.8);
+            let isBuyDominant = data.buy >= data.sell;
+            let opacity = Math.min((total / maxVol) * 0.7 + 0.1, 0.7);
             
-            ctx.fillStyle = `${baseColor}, ${intensity})`;
-            ctx.fillRect(0, getY(p) - 2, canvas.width, 4); // ممتد لآخر الشارت
+            // أحمر للبيع، أخضر للشراء
+            ctx.fillStyle = isBuyDominant ? `rgba(34, 197, 94, ${opacity})` : `rgba(239, 68, 68, ${opacity})`;
+            ctx.fillRect(0, getY(p) - 2.5, canvas.width, 5); // ممتد بعرض الشاشة
         });
 
-        // 2. رسم السعر (خط turquoise)
-        ctx.strokeStyle = '#00e6e6';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        history.forEach((p, i) => {
-            let x = i * (canvas.width / 59);
-            if(i === 0) ctx.moveTo(x, getY(p));
-            else ctx.lineTo(x, getY(p));
+        // 2. رسم الشموع اليابانية
+        visibleCandles.forEach((c, i) => {
+            let x = i * candleWidth + (candleWidth/2);
+            let color = c.c >= c.o ? '#22c55e' : '#ef4444';
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 1.5;
+            
+            // الذيل
+            ctx.beginPath();
+            ctx.moveTo(x, getY(c.h));
+            ctx.lineTo(x, getY(c.l));
+            ctx.stroke();
+            
+            // الجسم
+            let yO = getY(c.o), yC = getY(c.c);
+            let bodyHeight = Math.max(Math.abs(yO - yC), 2);
+            ctx.fillRect(x - candleWidth*0.3, Math.min(yO, yC), candleWidth*0.6, bodyHeight);
         });
-        ctx.stroke();
 
-        // 3. محاكاة امتصاص الأوامر وتغيير الاتجاه بذيل
+        // 3. رسم المتوسطات المتحركة
+        let mas = calculateMAs(allCandles);
+        let drawLine = (data, color) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let visData = data.slice(startIdx);
+            let started = false;
+            visData.forEach((val, i) => {
+                if(val === null) return;
+                let x = i * candleWidth + (candleWidth/2);
+                if(!started) { ctx.moveTo(x, getY(val)); started = true; }
+                else ctx.lineTo(x, getY(val));
+            });
+            ctx.stroke();
+        };
+        drawLine(mas.sma, '#3b82f6'); 
+        drawLine(mas.ema, '#f59e0b'); 
+        drawLine(mas.wma, '#a855f7'); 
+
+        // 4. تحديث سجل الأوامر
+        let obHtml = '';
+        for(let i=4; i>0; i--) {
+            let p = currentPrice + (i * 2.5);
+            let lvl = Math.round(p/5)*5;
+            let vol = Math.floor(Math.random() * 30 + (volumeProfile[lvl]?.sell || 0) % 80 + 10);
+            let pct = Math.min((vol / 150) * 100, 100);
+            obHtml += `<div class="ob-row sell"><div class="ob-bg" style="width:${pct}%"></div><div class="ob-text"><span>${p.toFixed(1)}</span> <span>${vol}</span></div></div>`;
+        }
+        obHtml += `<div class="current-price">${currentPrice.toFixed(1)}</div>`;
+        for(let i=1; i<=4; i++) {
+            let p = currentPrice - (i * 2.5);
+            let lvl = Math.round(p/5)*5;
+            let vol = Math.floor(Math.random() * 30 + (volumeProfile[lvl]?.buy || 0) % 80 + 10);
+            let pct = Math.min((vol / 150) * 100, 100);
+            obHtml += `<div class="ob-row buy"><div class="ob-bg" style="width:${pct}%"></div><div class="ob-text"><span>${p.toFixed(1)}</span> <span>${vol}</span></div></div>`;
+        }
+        document.getElementById('ob').innerHTML = obHtml;
+    }
+
+    function simulateTick() {
         patternTick++;
-        let tickVol = Math.floor(Math.random() * 5 + 1);
         let move = (Math.random() - 0.5) * 4;
+        let tickVol = Math.floor(Math.random() * 10 + 2);
+        let isBuy = move > 0;
 
-        if (patternTick > 40 && patternTick < 50) {
-            // نمط: ضغط بيع كثيف -> تكوين ذيل علوي -> ارتداد
-            move = 10 + (Math.random()*10); // اندفاع للأعلى
-            tickVol = 50; // حجم هائل (امتصاص)
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; // تضليل منطقة ضغط البيع
-            ctx.fillRect(0,getY(currentPrice+20), canvas.width, 40);
-        } else if (patternTick === 50) {
-            move = -30; // ارتداد حاد للأسفل بعد تكوين الذيل
-            tickVol = 10;
-        } else if (patternTick > 70) {
-            patternTick = 0; // إعادة النمط
+        // محاكاة اصطدام بسيولة وامتصاص لتكوين ذيل
+        if (patternTick === 30) {
+            move = 15; // اندفاع صعودي (ضرب منطقة مقاومة)
+            tickVol = 200;
+            isBuy = false; // أوامر البيع تمتص الصعود
+        } else if (patternTick === 31 || patternTick === 32) {
+            move = -8; // ارتداد قوي وتكوين ذيل علوي
+        } else if (patternTick === 60) {
+            move = -15; // اندفاع هبوطي (ضرب منطقة دعم)
+            tickVol = 200;
+            isBuy = true; // أوامر الشراء تمتص الهبوط
+        } else if (patternTick === 61 || patternTick === 62) {
+            move = 8; // ارتداد قوي وتكوين ذيل سفلي
+        } else if (patternTick > 80) {
+            patternTick = 0;
         }
 
         currentPrice += move;
-        history.push(currentPrice);
-        history.shift();
+        currentCandle.c = currentPrice;
+        currentCandle.h = Math.max(currentCandle.h, currentPrice);
+        currentCandle.l = Math.min(currentCandle.l, currentPrice);
 
-        // تحديث خريطة السيولة كل 5 نقاط
+        // تحديث خريطة السيولة
         let level = Math.round(currentPrice / 5) * 5; 
-        if (!volumeProfile[level]) volumeProfile[level] = {total: 0, buy: 0, sell: 0};
-        volumeProfile[level].total += tickVol;
-        if (move > 0) volumeProfile[level].buy += tickVol;
+        if (!volumeProfile[level]) volumeProfile[level] = {buy: 0, sell: 0};
+        if (isBuy) volumeProfile[level].buy += tickVol;
         else volumeProfile[level].sell += tickVol;
 
-        document.getElementById('current-price').innerText = currentPrice.toFixed(1);
-
-        setTimeout(draw, 150); // سرعة حركة السوق
+        tickCount++;
+        if(tickCount > 12) { 
+            candles.push({...currentCandle});
+            if(candles.length > 100) candles.shift();
+            currentCandle = {o: currentPrice, h: currentPrice, l: currentPrice, c: currentPrice};
+            tickCount = 0;
+        }
+        
+        draw();
+        setTimeout(simulateTick, 180); 
     }
 
-    // تهيئة سيولة مبدئية
-    for(let i=0; i<30; i++) {
-        let p = 15000 + (Math.random()-0.5)*50;
-        let level = Math.round(p/5)*5;
-        if (!volumeProfile[level]) volumeProfile[level] = {total: 0, buy: 0, sell: 0};
-        volumeProfile[level].total = Math.random()*50;
-        if (Math.random()>0.5) volumeProfile[level].buy = volumeProfile[level].total;
-        else volumeProfile[level].sell = volumeProfile[level].total;
+    // تهيئة الشموع والسيولة المبدئية
+    for(let i=0; i<40; i++) {
+        let open = currentPrice;
+        currentPrice += (Math.random()-0.5)*12;
+        candles.push({o: open, h: Math.max(open, currentPrice)+4, l: Math.min(open, currentPrice)-4, c: currentPrice});
+        
+        let lvl = Math.round(currentPrice/5)*5;
+        if (!volumeProfile[lvl]) volumeProfile[lvl] = {buy: 0, sell: 0};
+        volumeProfile[lvl][Math.random() > 0.5 ? 'buy' : 'sell'] += Math.random() * 80;
     }
     
-    draw();
+    simulateTick();
 </script>
 </body>
 </html>
